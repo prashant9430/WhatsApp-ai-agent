@@ -1,5 +1,11 @@
-const { default: makeWASocket, useMultiFileAuthState } = require("@whiskeysockets/baileys");
+const {
+  default: makeWASocket,
+  useMultiFileAuthState,
+  DisconnectReason
+} = require("@whiskeysockets/baileys");
+
 const axios = require("axios");
+const P = require("pino");
 
 const N8N_WEBHOOK = "https://YOUR_N8N_URL/webhook/whatsapp";
 
@@ -8,10 +14,24 @@ async function startBot() {
 
   const sock = makeWASocket({
     auth: state,
-    printQRInTerminal: true
+    logger: P({ level: "silent" }),
+    browser: ["WhatsApp AI", "Chrome", "1.0"]
   });
 
   sock.ev.on("creds.update", saveCreds);
+
+  sock.ev.on("connection.update", (update) => {
+    const { qr, connection } = update;
+
+    if (qr) {
+      console.log("SCAN THIS QR CODE 👇");
+      console.log(qr);
+    }
+
+    if (connection === "open") {
+      console.log("✅ WhatsApp connected successfully");
+    }
+  });
 
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0];
@@ -30,11 +50,11 @@ async function startBot() {
       });
 
       await sock.sendMessage(msg.key.remoteJid, {
-        text: res.data.reply || "AI busy hai, thoda baad try karein"
+        text: res.data.reply || "AI busy hai"
       });
 
     } catch (err) {
-      console.error(err);
+      console.log("Error:", err.message);
     }
   });
 }
